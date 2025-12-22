@@ -41,7 +41,7 @@ categorical_feature=["Make","Colour"]
 # Create categorical transformer Pipeline
 categorical_transformer=Pipeline(steps=[
     ("imputer",SimpleImputer(strategy="constant",fill_value="missing")),
-    ("onehotencoder",OneHotEncoder(handle_unknown="ignore"))
+    ("onehotencoder",OneHotEncoder(handle_unknown="ignore",sparse_output=False))
 ])
 
 # Define Doors features
@@ -51,16 +51,16 @@ doors_transformer=Pipeline(steps=[
 ])
 
 # Define numeric features (only the Odometer (KM) column)
-odometer_feature=['Odometer']
+odometer_feature=['Odometer (KM)']
 odometer_transformer=Pipeline(steps=[
     ("imputer",SimpleImputer(strategy="median"))
 ])
 
 # Setup preprocessing steps (fill missing values, then convert to numbers)
 preprocessor=ColumnTransformer(
-    transfer=[
+    transformers=[
         ("cat",categorical_transformer,categorical_feature),
-        ("door",categorical_transformer,categorical_feature),
+        ("door",doors_transformer,doors_feature),
         ("odometer",odometer_transformer,odometer_feature)
     ]
 )
@@ -78,10 +78,10 @@ from sklearn.ensemble import RandomForestRegressor
 # Create dictionary of model instances, there should be 4 total key, value pairs in the form {"model_name": model_instance}.
 
 regression_model={
-    "ridge":Ridge(),
-    "SVR_Linear":SVR(kernel="linear"),
-    "SVR_rbf":SVR(kernel="rbf"),
-    "RandomForestRegressor":RandomForestRegressor()
+    'ridge':Ridge(),
+    'SVR_Linear':SVR(kernel="linear"),
+    'SVR_rbf':SVR(kernel="rbf"),
+    'RandomForestRegressor':RandomForestRegressor()
 }
 result_regression={}
 
@@ -98,10 +98,10 @@ print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
 
  
 # Loop through the items in the regression_models dictionary
-for model, model_name in regression_model.items():
+for model_name, model in regression_model.items():
 # Create a model Pipeline with a preprocessor step and model step
-    model_pipeline=Pipeline(steps=[("preprocessor",preprocessor),
-                                   ("model",model)])
+    model_pipeline=Pipeline(steps=[('preprocessor',preprocessor),
+                                   ('model',model)])
     # Fit the model Pipeline to the car sales training data
     print(f"fiting{model_name}...")
     model_pipeline.fit(X_train,y_train)
@@ -109,6 +109,22 @@ for model, model_name in regression_model.items():
     result_regression[model_name]=model_pipeline.score(X_test,y_test)
 
 print(result_regression)
+print("-------------------------------------")
+
+import matplotlib.pyplot as plt
+
+models = list(result_regression.keys())
+scores = list(result_regression.values())
+
+plt.figure(figsize=(8, 5))
+plt.bar(models, scores)
+plt.xlabel("Models")
+plt.ylabel("R2 Score")
+plt.title("Model Comparison (R2 Score)")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
 
 # Import mean_absolute_error,r2_score,mean_squared_error from sklearn's metrics module
 from sklearn.metrics import mean_absolute_error,mean_squared_error,r2_score
@@ -120,6 +136,16 @@ ridge_pipeline =Pipeline(steps=[("preprocessor",preprocessor),
 ridge_pipeline.fit(X_train,y_train)
 
 y_preds = ridge_pipeline.predict(X_test)
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(6, 6))
+plt.scatter(y_test, y_preds)
+plt.xlabel("Actual Prices")
+plt.ylabel("Predicted Prices")
+plt.title("Actual vs Predicted Car Prices")
+plt.show()
+
 
 type(y_preds)
 print(y_preds[:50])
