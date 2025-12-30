@@ -125,7 +125,6 @@ plt.xticks(rotation=30)
 plt.tight_layout()
 plt.show()
 
-
 # Import mean_absolute_error,r2_score,mean_squared_error from sklearn's metrics module
 from sklearn.metrics import mean_absolute_error,mean_squared_error,r2_score
 
