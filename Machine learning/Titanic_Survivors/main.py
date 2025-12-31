@@ -8,6 +8,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer    
 from sklearn.preprocessing import OneHotEncoder,LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 
 # load the dataset
@@ -82,52 +83,72 @@ print(X_train.isna().sum())
 print(X_test.isna().sum())
 
 #Encoding 
-sex_encoder = LabelEncoder()
-X_train["Sex"] = sex_encoder.fit_transform(X_train["Sex"])
-X_test["Sex"] = sex_encoder.transform(X_test["Sex"])
+categorical_features = ["Sex", "Embarked"]
+numeric_features = ["Age", "Fare", "Pclass", "SibSp", "Parch"]
 
-embarked_encoder = OneHotEncoder(
-    handle_unknown="ignore",
-    sparse_output=False
+categorical_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("onehot", OneHotEncoder(handle_unknown="ignore"))
+])
+
+numeric_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="median"))
+])
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", numeric_transformer, numeric_features),
+        ("cat", categorical_transformer, categorical_features)
+    ]
 )
-embarked_encoded_train = embarked_encoder.fit_transform(
-    X_train[["Embarked"]]
+
+# model building 
+rf_pipeline = Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("model", RandomForestClassifier(
+        n_estimators=100,
+        random_state=42
+    ))
+])
+rf_pipeline.fit(X_train, y_train)
+y_pred = rf_pipeline.predict(X_test)
+
+
+# Evaluate the model
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+plt.figure(figsize=(6,4))
+sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d", cmap="Blues")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix - Random Forest")
+plt.show()
+
+# Feature Importance
+feature_names = (
+    rf_pipeline.named_steps["preprocessor"]
+    .get_feature_names_out()
 )
-embarked_encoded_test = embarked_encoder.transform(
-    X_test[["Embarked"]]
+
+importances = (
+    rf_pipeline.named_steps["model"]
+    .feature_importances_
 )
-embarked_cols = embarked_encoder.get_feature_names_out(["Embarked"])
-embarked_train_df = pd.DataFrame(
-    embarked_encoded_train,
-    columns=embarked_cols,
-    index=X_train.index
+
+feature_importance_df = pd.DataFrame({
+    "Feature": feature_names,
+    "Importance": importances
+}).sort_values(by="Importance", ascending=False)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(
+    data=feature_importance_df.head(10),
+    x="Importance",
+    y="Feature"
 )
-embarked_test_df = pd.DataFrame(
-    embarked_encoded_test,
-    columns=embarked_cols,
-    index=X_test.index
-)
-X_train = X_train.drop("Embarked", axis=1)
-X_test = X_test.drop("Embarked", axis=1)
-X_train = pd.concat([X_train, embarked_train_df], axis=1)
-X_test = pd.concat([X_test, embarked_test_df], axis=1)
-print(X_train.dtypes)
-print(X_test.dtypes)
-
-
-
-
-
-
-
-# categorical_features=["Sex","Embarked"]
-
-# categorical_transformer=Pipeline(steps=[
-#     ("imputer",SimpleImputer(strategy="most_frequent"))
-#     ("oneHotEncoder",OneHotEncoder())
-# ])
-# numeric_features=["Age","Fare"]
-
-
+plt.title("Top 10 Feature Importances - Random Forest")
+plt.show()
 
 
